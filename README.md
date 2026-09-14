@@ -1,6 +1,6 @@
 # Construction Conundrum: Modeling the Impact of the 2008 Financial Crisis on Housing Starts Forecasting
 
-Final project for STAT 5170 (Time Series), University of Virginia — Max Van Zandt and Sami Adam.
+Co-Authored by Sami Adam and Maximilian Van Zandt during their time at the University of Virginia.
 
 ## Description
 
@@ -30,7 +30,6 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 
 ## Files
 
-```
 ├── analysis/
 │   ├── max-pre-2006.Rmd       # SARIMA + spectral analysis, pre-2006 training regime
 │   └── sami-pre-2010.Rmd      # SARIMA + spectral analysis, pre-2010 training regime
@@ -44,7 +43,6 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 │   └── README.md                # Template attribution notes
 ├── LICENSE
 └── README.md
-```
 
 ## Authorship
 
