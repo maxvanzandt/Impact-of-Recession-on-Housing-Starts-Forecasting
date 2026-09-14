@@ -1,0 +1,233 @@
+---
+title: "Housing Starts Analysis — Pre-2010 Regime"
+author: "Sami Adam"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tseries)
+library(astsa)
+library(readr)
+library(forecast)
+```
+
+```{r load-data}
+data <- read_csv("HOUST.csv")
+data_ts <- ts(data$HOUST, start=c(1959, 1), frequency=12)
+plot(data_ts, ylim=c(0,3000))
+acf2(data_ts)
+```
+
+#### Pre-2010
+
+```{r pre2010-transform}
+#Pre-Jan 2010
+pre2010 <- window(data_ts, start=c(1959, 1), end=c(2010,1))
+plot(pre2010, main="Housing Starts: Pre-2010", ylab="Housing Starts")
+
+diff_pre2010 <- diff(pre2010)
+plot(diff_pre2010, main="Differenced Housing: Pre-2010")
+#Log original
+log_pre2010 <- log(pre2010)
+#Difference the log
+diff_log_pre2010 <- diff(log_pre2010)
+plot(diff_log_pre2010, main="Differenced Log Housing: Pre-2010")
+```
+
+```{r pre2010-acf}
+acf2(diff(log(pre2010)), max.lag=120)
+```
+
+Now, I'm checking seasonal differencing of the differenced log data just to see if that makes a difference. Then, auto.arima.
+
+```{r pre2010-seasonal-diff}
+sd_diff_pre2010 <- diff(diff_log_pre2010, 60)
+plot(sd_diff_pre2010, main="First + Seasonal (60 m) Differenced: Pre-2010")
+acf2(sd_diff_pre2010, max.lag=120)
+
+#Stationarity check
+adf.test(diff_log_pre2010)
+adf.test(sd_diff_pre2010)
+```
+
+```{r pre2010-train-test}
+log_data <- log(data_ts)
+
+train <- window(log_data, end = c(2009, 12))
+test  <- window(log_data, start = c(2010, 1))
+```
+
+```{r pre2010-sarima-candidates}
+fit1 <- sarima(train, 0,0,0, 1, 0, 1, 12)
+fit2 <- sarima(train, 1,0,0, 1, 0, 1, 12)
+fit3 <- sarima(train, 1,0,1, 1, 0, 1, 12)
+fit4 <- sarima(train, 1,0,1, 1, 0, 1, 12)
+```
+
+```{r pre2010-auto-arima}
+# Fit on log scale
+fit <- auto.arima(train,
+                  seasonal = TRUE,
+                  stepwise = FALSE,
+                  approximation = FALSE,
+                  max.P = 2, max.Q = 2)
+summary(fit)
+```
+
+```{r pre2010-forecast}
+h <- length(test)
+
+fitx <- Arima(train, order = c(1,0,1), seasonal = c(1, 0, 1))
+fc <- forecast(fitx, h = h)
+
+# Back-transform to original scale
+pred_level  <- exp(fc$mean)
+lower_level <- exp(fc$lower[,2])  # 95% lower
+upper_level <- exp(fc$upper[,2])  # 95% upper
+
+# Plot: actual vs predicted (with 95% band)
+plot(data_ts, main = "Housing Starts: Actual vs Forecast (level scale)",
+     ylab = "Housing Starts", xlab = "Time", col = "black", lwd = 1,
+     ylim=c(0,4000))
+lines(pred_level, col = "red", lwd = 1)
+lines(lower_level, col = "grey", lty = 2)
+lines(upper_level, col = "grey", lty = 2)
+legend("topleft",
+       legend = c("Actual", "Forecast", "95% PI"),
+       col = c("black", "red", "grey"),
+       lty = c(1, 1, 2), lwd = c(2, 2, 1), bty = "n")
+```
+
+```{r pre2010-spectral-setup}
+n_train <- length(train)
+n_test  <- length(test)
+
+t_train <- seq_len(n_train)
+t_test  <- (n_train + 1):(n_train + n_test)
+
+## 1. Detrend + demean training data
+trend_fit <- lm(as.numeric(train) ~ t_train)
+r_train <- resid(trend_fit)
+r_train <- r_train - mean(r_train)
+
+## 2. Smoothed spectral density (training only)
+k <- kernel("modified.daniell", c(2, 2))
+spec_obj <- mvspec(r_train, kernel = k, plot = TRUE)
+
+spec_values <- spec_obj$spec
+freq_values <- spec_obj$freq
+df <- spec_obj$df
+
+## 3. Dominant frequency
+idx <- which.max(spec_values)
+omega_star <- freq_values[idx]
+period_star <- 1 / omega_star
+f_hat <- spec_values[idx]
+
+cat("Dominant period:", round(period_star, 1), "months (",
+    round(period_star/12, 1), "years)\n")
+```
+
+```{r pre2010-fourier-forecast}
+## 4. Fit sinusoid at dominant frequency
+X_train <- cbind(
+  cos(2 * pi * omega_star * t_train),
+  sin(2 * pi * omega_star * t_train)
+)
+
+fit_fourier <- lm(r_train ~ X_train)
+
+## 5. Forecast sinusoid into test period
+X_test <- cbind(
+  cos(2 * pi * omega_star * t_test),
+  sin(2 * pi * omega_star * t_test)
+)
+
+r_hat_test <- cbind(1, X_test) %*% coef(fit_fourier)
+
+## Add back trend
+trend_test <- predict(
+  trend_fit,
+  newdata = data.frame(t_train = t_test)
+)
+
+log_pred <- as.numeric(r_hat_test) + trend_test
+
+## 6. Spectral-based variance estimate
+sigma2_hat <- f_hat
+
+alpha <- 0.05
+z <- qnorm(1 - alpha / 2)
+
+se_pred <- sqrt(sigma2_hat)
+
+lower <- log_pred - z * se_pred
+upper <- log_pred + z * se_pred
+
+## 7. Collect results
+forecast_df <- ts(
+  cbind(
+    actual = test,
+    forecast = log_pred,
+    lower = lower,
+    upper = upper
+  ),
+  start = start(test),
+  frequency = frequency(test)
+)
+
+forecast_df
+```
+
+```{r pre2010-fitted-values}
+## In-sample fitted values (log scale)
+r_hat_train <- cbind(1, X_train) %*% coef(fit_fourier)
+trend_train <- fitted(trend_fit)
+
+log_fitted <- as.numeric(r_hat_train) + trend_train
+
+fitted_level <- exp(log_fitted)
+
+fitted_ts <- ts(
+  fitted_level,
+  start = start(train),
+  frequency = frequency(train)
+)
+```
+
+```{r pre2010-spectral-plot}
+pred_level  <- exp(log_pred)
+lower_level <- exp(lower)
+upper_level <- exp(upper)
+
+pred_ts  <- ts(pred_level,  start = start(test), frequency = frequency(test))
+lower_ts <- ts(lower_level, start = start(test), frequency = frequency(test))
+upper_ts <- ts(upper_level, start = start(test), frequency = frequency(test))
+
+smoothed_data_ts <- ma(data_ts, order = period_star)
+
+plot(
+  smoothed_data_ts,
+  main = "Housing Starts: Spectral Fit and Forecast (level scale)",
+  ylab = "Housing Starts",
+  xlab = "Time",
+  col = "black",
+  lwd = 1,
+  ylim = c(0, 4000)
+)
+
+## In-sample fitted (training)
+lines(fitted_ts, col = "blue", lwd = 1)
+
+## Out-of-sample forecast
+lines(pred_ts,  col = "red",  lwd = 1)
+
+legend(
+  "topleft",
+  legend = c("Actual (smoothed)", "Fitted (Train)", "Spectral Forecast"),
+  col = c("black", "blue", "red"),
+  lty = c(1, 1, 1, 2),
+  lwd = c(2, 2, 2, 1),
+  bty = "n"
+)
+```
