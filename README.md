@@ -56,4 +56,4 @@ The LaTeX formatting is based on the CVPR paper template (originally by Paolo Ie
 
 ## License
 
-BSD 3-Clause — see [LICENSE](LICENSE) for details.
+BSD 3-Clause - see [LICENSE](LICENSE) for details.
