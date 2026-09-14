@@ -16,7 +16,7 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 
 | Variable | Description | Units | Frequency | Source |
 |---|---|---|---|---|
-| `HOUST` | New privately-owned residential units on which construction has begun (defined as initiation of excavation for the building's footings) | Thousands of units | Monthly, Jan 1959–Aug 2025 | FRED (HOUST) |
+| `HOUST` | New privately-owned residential units on which construction has begun (defined as initiation of excavation for the building's footings) | Thousands | Monthly, Jan 1959-Aug 2025 | FRED (HOUST) |
 
 ## Reproduction Steps
 
