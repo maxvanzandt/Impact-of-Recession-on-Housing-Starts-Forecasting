@@ -1,0 +1,356 @@
+% CVPR 2024 Paper Template
+% based on the CVPR template provided by Ming-Ming Cheng (https://github.com/MCG-NKU/CVPR_Template)
+% modified and extended by Stefan Roth (stefan.roth@NOSPAMtu-darmstadt.de)
+
+\documentclass[10pt,twocolumn,letterpaper]{article}
+
+%%%%%%%%% PAPER TYPE - PLEASE UPDATE FOR FINAL VERSION
+%\usepackage[review]{cvpr}      % To produce the REVIEW version
+\usepackage{cvpr}             % To produce the CAMERA-READY version
+%\usepackage[pagenumbers]{cvpr} % To force page numbers, e.g. for an arXiv version
+
+% Include other packages here, before hyperref.
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+
+% It is strongly recommended to use hyperref, especially for the review version.
+% hyperref with option pagebackref eases the reviewers' job.
+% Please disable hyperref *only* if you encounter grave issues, e.g. with the
+% file validation for the camera-ready version.
+%
+% If you comment hyperref and then uncomment it, you should delete
+% ReviewTempalte.aux before re-running LaTeX.
+% (Or just hit 'q' on the first LaTeX run, let it finish, and you
+%  should be clear).
+\usepackage[pagebackref,breaklinks,colorlinks]{hyperref}
+
+% Support for easy cross-referencing
+\usepackage[capitalize]{cleveref}
+\crefname{section}{Sec.}{Secs.}
+\Crefname{section}{Section}{Sections}
+\Crefname{table}{Table}{Tables}
+\crefname{table}{Tab.}{Tabs.}
+
+%%%%%%%%% PAPER ID  - PLEASE UPDATE
+% \def\confName{CVPR}
+% \def\confYear{2024}
+
+\begin{document}
+
+%%%%%%%%% TITLE - PLEASE UPDATE
+\title{Construction Conundrum: Using Stochastic Modeling to Understand the Impact of the Recession on HOUST Forecasting}
+
+\author{Sami Adam (zeh4tv), Maximilian Van Zandt (ukr7gp)\\
+University of Virginia\\
+}
+
+\maketitle
+
+%%%%%%%%% ABSTRACT
+\begin{abstract}
+This study analyzes the impact of the sharp regime change caused by the 2008 Financial Crisis through the lens of the metric, New Privately-Owned Housing Units Started (HOUST). Results show that out-of-sample forecasting is improved when taking into account the sharp structural change in the data, with the observed recovery period (post-2010) falling within the prediction intervals. Moreover, interpretable time series methodology in the form of spectral analysis and seasonal ARMA is prioritized as a way of capturing the forecasting and estimation differences. This study provides the groundwork for more nuanced analysis and complex modeling, with an intuitive and data-driven understanding of these structural implications on forecasting.
+\end{abstract}
+
+
+%%%%%%%%% BODY TEXT
+\section{Introduction}
+\label{sec:intro}
+
+The United States housing market is a fundamental cornerstone of the domestic and world economy, shaping the decisions both individuals and Financial institutions make. Within this complicated market is a metric that is perhaps the most important indicator of confidence in the future of the housing market: New Privately-Owned Housing Units Started (HOUST). This metric tracks the housing unit builds that have begun, an indicator of the confidence of developers in the market. Using this data (obtained from the Federal Reserve Bank of St. Louis (FRED) \cite{fred2025houst}), we develop a glimpse into the behavior of the housing market and better understand effective ways of modeling this behavior.
+
+As is often the case in economic time series data, regime changes occur when new policy is enacted, conflict arises on a domestic or world stage, or resources become scarce or abundant. Many of these regime changes are a result of change in resources, technology, and institutions. The 2008 Financial Crisis is perhaps the best example of a  dramatic regime change in the U.S. economy since the Great Depression. Thus, any modeling we conduct on data including 2008 and before (needed to achieve a large dataset and thus, reliable long-term forecasts) must account for this regime change. 
+
+Our goal is to not only model with this structural break in mind, but specifically target the 2008 Financial Crisis as a point of interest in evaluating forecasting quality. Rather than fitting a model with the hopes of differencing away the structural break, we fit two models: one on data pre-crisis and another on data that includes the crisis. This approach directly addresses our research question: \textbf{How does forecasting change given the 2008 Financial Crisis?}
+
+\section{Literature Review}
+\label{sec:literature_review}
+
+As mentioned in the Introduction, the HOUST metric is well-researched, as its future-focused nature can sometimes put it ahead of other economic trends. This makes it well-suited for examining recession risks.
+\subsection{Predicting the U.S. Recessions with Housing Starts in Dynamic Probit Models}
+
+Cui \cite{cui2015predicting} looked to use HOUST growth and interest-rate spreads to predict recessions, defined as the National Bureau of Economic Research (NBER) does, through probit models: a binary regressor that uses Gaussian tails rather than tails from a logistic distribution. Importantly, Cui found that significant housing weaknesses preceded postwar recessions, further supporting our focus on HOUST as a metric with which to observe recessions. Moreover, the findings support our decision to model on data up to the peak of HOUST before the recession and 2008 Financial Crisis (January 2006), as well as the first time HOUST returned to a pre-recession minimum (pre-2010). Zietz \textit{et. al.} \cite{ZIETZ2014271}, supports the decision to frame the 2008 Financial Crisis as a structural break and thus model accordingly. Here, the researchers found that a recession in the mid-2000s becomes increasingly predictable as the pre-2006 growth continues. The state-space/structural time series models performed slightly better, predicting the recession as early as June 2005 while the other forecasting models did not predict the downturn until mid-2006. However, it is important to note that good in-sample fit did not translate to out-of sample forecasting performance in these models. Thus, this paper supports our decision to examine out-of-sample forecasting performance using ARIMA/SARIMA models.
+
+Another key finding from Cui is that HOUST specifically contributed to the improved performance of the model as compared to models trained on only interest-rate spreads. Moreover, the paper made use of dynamic probit models that included a lagged recession indicator and found that they performed better than static models. However, the paper did not explore HOUST as an independent stochastic process, merely assuming it to be a deterministic component of a recession probability.
+
+\subsection{Time Series Analysis and Forecasting of the US Housing Starts using Econometric and Machine Learning Models}
+
+Joshi \cite{joshi2019timeseriesanalysisforecasting} focused entirely on HOUST, developing models to predict the metric using ARIMA, ARIMAX, and VARX, along with GARCH to capture volatility, and ensemble methods to improve performance and capture subtle nuances. This paper found that while ensemble methods unsurprisingly outperform ARIMA in short-term out-of-sample forecasts, ARIMA remains a strong baseline. Moreover, Joshi employed first-differencing, assuming HOUST is difference-stationary, which is contrary to the trend-stationary treatment of the data here. Additionally, Joshi does not explore splitting the data along the structural break (pre- and post-crisis regimes) nor does it explore seasonality or cyclicality. Thus, we are motivated by the demonstrated effectiveness of ARIMA in forecasting HOUST data and the gap in research on SARIMA/spectral analysis and the structural break in terms of HOUST. 
+
+\subsection{Time Series Analysis of the (U.S.) Housing Prices: Linear and Nonlinear Methods}
+
+Wu \cite{wu2017time} offers a glimpse into the possibilities of explicitly using SARIMA models in modeling and forecasting housing indices. This research centered around modeling the house price index (HPI) using the linear SARIMA in comparison to the nonlinear SETAR and Markov regime-switching. Interestingly, SARIMA performed best in out-of-sample forecasting as compared to nonlinear methods. However, the Markov regime-switching model identified a regime change in April 2004, with oscillating HPI after July 2006 which is consistent with the housing market collapse preceding the 2008 Financial Crisis. 
+
+This helps to justify SARIMA as effective for modeling and forecasting housing variables and further motivates an expansion into spectral analysis of differing cycles and the regime change (the 2008 Financial Crisis).
+
+\subsection{Spectral Analysis of Economic Time Series}
+
+As hinted in previous discussions, inspection of the HOUST data quickly elicits a question regarding the cycles that are present: are there longer economic/business cycles over decades, or the typical annual or semi-annual seasonality of long-term time series data? Granger and Hatanaka \cite{granger1964spectral} validate the exploration of long-term business cycles, finding that spectral analysis is useful in identifying business cycles of 4-10 years in wavelength. Moreover, general results throughout the book show irregular amplitudes in the cycles and a distinction between the business cycles and seasonal cycles, an observation that we make regarding the HOUST data.
+
+\subsection{Final Thoughts}
+
+Overall, the literature indicates the usefulness of ARIMA as a baseline method and exploring structural breaks and business cycles. Moreover, the literature also demonstrates the novelty of our work in exploring SARIMA and spectral analysis on the HOUST data, taking into account the structural break of the 2008 Financial Crisis.
+
+
+
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Data Description}
+
+We use the New Privately-Owned Housing Units Started (HOUST) \cite{fred2025houst} dataset obtained from the Federal Reserve Bank of St.\ Louis (FRED). The series spans from January 1959 to August 2025 and is recorded at a monthly frequency. Housing starts measure the number of new privately-owned residential units on which construction has begun, defined as the initiation of excavation for the building’s footings. The series is reported in thousands of units and serves as a widely used indicator of housing market activity and broader economic conditions.
+
+\begin{figure} [H]
+    \centering
+    \includegraphics[width=0.80\linewidth]{images/originaltimesseriesCORRECTEDACTUALLYCORRECTTHISTIME.png}
+    \caption{New Privately-Owned Housing Units Started: Total Units (HOUST) from Jan 1959 - Aug 2025.}
+    \label{fig:housingts}
+\end{figure}
+
+\subsection{Data Transformations}
+
+As seen in Figure \ref{fig:housingts}, initial inspection of the raw housing starts series reveals substantial variability over time, with periods of elevated volatility during economic expansions and contractions. However, no clear deterministic linear trend was observed in the level series, suggesting that regular differencing was not required to remove a long-run trend component. To address heteroskedasticity and stabilize the variance, a logarithmic transformation was applied to the series prior to model fitting.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.75\linewidth]{images/log_acf_pacf.png}
+    \caption{Autocovariance and Partial Autocovariance of log-transformed dataset. Notice the decaying nature of both metrics.}
+    \label{fig:log_acf_pacf}
+\end{figure}
+
+Following the log transformation, the overall scale of fluctuations appeared more stable across time. As seen in Figure \ref{fig:log_acf_pacf}, examination of the sample autocorrelation function (ACF) and partial autocorrelation function (PACF) of the log-transformed series indicated strong short-run dependence, with a slowly decaying ACF and a prominent first-lag spike in the PACF. This behavior is consistent with low-order autoregressive or moving average dynamics, suggesting that the transformed series may be adequately modeled using an AR(1), MA(1), or ARMA-type specification without additional differencing. Stationarity was assessed through a combination of visual inspection and correlation-based diagnostics applied to both the original and log-transformed series. 
+
+Based on these diagnostics, the log-transformed series was treated as weakly stationary in mean, and no additional differencing was applied. Formal unit root testing was not emphasized, as the correlation structure and subsequent model diagnostics provided sufficient guidance for model specification.
+
+
+\subsection{Time-Domain Model Classes Considered}
+
+Based on the correlation structure observed in the log-transformed housing starts series, we restricted modeling to low-order autoregressive and moving average models. The first-lag spike in the partial autocorrelation function (PACF) and the gradual decay of the autocorrelation function (ACF), suggested that an autoregressive component was necessary to capture short-run dependence. At the same time, the slowly declining ACF also motivated consideration of a moving average component to account for short-term shock propagation.
+
+Accordingly, AR(1), MA(1), and ARMA(1,1) models were treated as primary candidate models. Seasonal extensions of these models were also considered to account for potential annual dependence in the monthly data.
+
+
+
+Model complexity was intentionally limited to maintain interpretability. Final model selection was guided by information criteria and diagnostic performance, as will be described in the subsequent section.
+
+\subsection{Frequency-Domain Model Classes Considered}
+
+The HOUST series also clearly contains a sinusoidal nature. However, it is important to note that this analysis focuses on modeling HOUST as a stochastic process and evaluating the forecasting implications of the structural break accordingly. Thus, we moved to spectral analysis, extending our observation of annual seasonality discussed in the subsequent sections to an analysis of a possible long-term cycle. This reflects literature indicating that long-term business/economic cycles are analyzable using spectral analysis.\cite{granger1964spectral}
+
+We proceeded to generation of periodograms for both data splits and applied appropriate smoothing techniques for visual aid and variance control. Then, we identified the dominant frequency and subsequent period and compared that to the seasonal assumptions made in the time-domain modeling stage. 
+
+\subsection{Forecast Construction}
+
+For each selected model, parameters were estimated using the designated training sample, after which forecasts were produced for the evaluation period. All forecasting was conducted on the log-transformed scale to maintain consistency with the model assumptions.
+
+Point forecasts were then transformed back to the original level scale using the exponential function. Prediction intervals were constructed on the log scale and then mapped to the level scale via exponentiation. This approach preserves the asymmetric nature of forecast uncertainty on the original scale while remaining coherent with the underlying model specification.
+
+Forecast accuracy and uncertainty were evaluated using a common test period across all models and training regimes to ensure comparability. Further details on model evaluation and diagnostic performance are provided in the Experiments section.
+
+\section{Experiments}
+\label{sec:experiments}
+
+\subsection{Training Regime Design}
+
+To assess the sensitivity of model estimates to the choice of historical training window, two training regimes were considered: a pre-crisis peak regime ending prior to the 2008 Financial Crisis and a post-crisis trough regime beginning near the lowest point of the housing downturn. These regimes were selected to represent the different macroeconomic environments, while also guaranteeing substantial training data.
+
+Despite representing different contexts, diagnostics revealed that the underlying short-term patterns remained consistent between the two log-transformed regimes. The ACF/PACF revealed nearly identical structure, suggesting the use of the same low-complexity ARMA models was appropriate. As a result, the differences in regime arise in parameter and point estimates.
+
+
+
+\subsection{Model Selection Procedure}
+
+Preliminary model identification began with an inspection of the ACF and PACF for the pre-2006 and pre-2010 data (Figure \ref{fig:log_acf_pacf}). The gradual decay in the ACF with persistent lags above the white noise bands provided clear evidence of non-stationarity. However, differencing (fitting d=1 or D=1) resulted in residual diagnostics that showed severe autocorrelation and p-values approximately 0. This indicated to us that we perhaps over-differenced the data, thus introducing additional dependencies not previously present in the data. Moreover, this pattern suggested that we shift our characterization of the series from differenced-stationary to trend-stationary. 
+
+Given these initial findings, we moved to fitting models without a differencing component. Initial inspection of the PACF (Figure \ref{fig:log_acf_pacf}) revealed a sharp cutoff at lag 2 (gradual decay of ACF \textit{a priori}), suggesting a need for the MA(2) setting. However, we proceeded with an MA(1) fit to maintain interpretability and parsimony. The MA(1) model fit passed diagnostics tests, but exhibited the remaining ACF structure at early lags. Thus, we added an AR(1) component to the MA(1) (ARMA(1,1)) which produced a better fit, with residual autocorrelations below the white noise bands and lower AIC (ARMA(1,1) $= -2.328 < -1.066 =$ MA(1)). 
+
+After fitting the ARMA(1,1), inspection of the time series provided ample evidence to explore seasonal components P and Q (Figure \ref{fig:housingts}). Moreover, the ACF of the logged data showed spikes at lags 12 and 24 (Figure \ref{fig:log_acf_pacf}) and the ACF of the ARMA(1,1) model residuals also included these spikes, further supporting exploration of a seasonal component. In tests of the models SARIMA(1,0,1)(0,0,0)[12], SARIMA(1,0,1)(0,0,1)[12], SARIMA(1,0,1)(1,0,0)[12], and SARIMA(1,0,1)(1,0,1)[12], We determined the SARIMA(1,0,1)(1,0,1)[12] model setting gave the best balance of fit and parsimony. Moreover, removing the SAR1 term resulted in failed diagnostics which completed the confirmation of the necessity of all components.
+
+It is important to note that the process outlined above took place in similar fashions for the pre-2006 and pre-2010 data. Interestingly, the resulting models had the same structure (SARIMA(1,0,1)(1,0,1)[12]) for both training splits. Thus, further comparison in the subsequent sections will focus on model estimates and spectral analysis.
+
+\subsection{Diagnostic Validation}
+
+\begin{figure*}[h]
+  \centering
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/2006ResDiagnosticsGraph.png}
+    \caption{ARMA fit and forecast trained on the pre-2006 regime.}
+    \label{fig:2006ResDiagnosticsGraph}
+  \end{subfigure}\hfill
+  \begin{subfigure}[t]{0.49\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/2010ResDiagnosticsGraph.png}
+    \caption{ARMA fit and forecast trained on the pre-2010 regime.}
+    \label{fig:2006ResDiagnosticsGraph}
+  \end{subfigure}
+
+  \caption{Diagnostic plots for the SARIMA(1,0,1)(1,0,1)[12] models, including the plot of the standardized residuals, the Q-Q plot of standardized residuals, the ACF of the residuals, and the plotted p-values of the Ljung-Box Statistics. The two panels correspond to models trained on different historical regimes (pre-2006 vs.\ pre-2010).}
+  \label{fig:DiagnosticsGraph}
+\end{figure*}
+
+Model diagnostic plots were outputted for both the pre-2006 SARIMA(1,0,1)(1,0,1)[12] and the pre-2010 SARIMA(1,0,1)(1,0,1)[12] (Figure \ref{fig:DiagnosticsGraph}). The Q-Q plots suggested approximate normality of residuals, with minor deviations at the tails of the residuals. Moreover, the plot of the standardized residuals themselves suggest approximate white noise, with relatively random and constantly varied points for both data splits. These three plots were promising in terms of model adequacy, leaving inspection of the ACFs and Ljung-Box Statistic p-values as the final indicators of model fit.
+
+Inspection of the ACFs and Ljung-Box statistic p-values revealed some slight inadequacies in both models. The pre-2006 SARIMA(1,0,1)(1,0,1)[12] ACF still showed some spikes above the white noise bands at lag 3, 38, and 47, despite being a major improvement over previous iterations. This is supported by the p-values for the Ljung-Box statistic, with many p-values below the 0.05 threshold at lags before 20. The pre-2010 SARIMA(1,0,1)(1,0,1)[12] showed similar patterns, with more spikes (lags 3, 4, 13, 38, and 47), suggesting that some cyclical relationships have yet to be fully modeled. Moreover, none of the Ljung-Box statistic p-values fully cross the 0.05 threshold, with many staying just below or on the boundary line. 
+
+Despite these issues, the model fit is generally adequate for both training splits, as it represents a major improvement over previous iterations. Moreover, the slight model inadequacies suggested by the Ljung-Box statistic p-values and ACF of residuals are minor when compared to the overall improvement in AIC and general stationarity in the ACF.
+
+
+\subsection{Spectral Analysis}
+
+In addition to time-domain models, we used spectral models to examine how the distribution of variance across frequencies differed between the two regimes. Spectral analysis offers a complementary perspective by characterizing cyclical behavior in the frequency space. For each training regime, spectral density estimates were computed using the log-transformed series. Identical estimation procedures and smoothing choices were applied to ensure comparability across regimes. Spectral models were then trained separately on the pre-crisis peak and post-crisis trough samples, allowing differences in dominant frequencies and energy concentration to be assessed.
+
+While the ACF/PACF suggested the use of low-ordered models across regimes, the spectral analysis revealed differences in contribution between low and medium frequencies. These differences provide insight into how long-run cyclical behavior and persistence in housing starts evolved across economic conditions, and they motivate the inclusion of spectral forecasts alongside time-domain models.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Selected Time-Domain Models}
+
+Based on the selection procedure outlined in the previous section, the model equation is:
+\begin{equation}
+(1 - \phi_1 B)(1 - \Phi_1 B^{12})(Y_t - \mu) = (1 + \theta_1 B)(1 + \Theta_1 B^{12})\varepsilon_t
+\end{equation}
+where $Y_t = \log(\text{HOUST}_t)$ and $\varepsilon_t \sim \text{WN}(0, \sigma^2)$.
+
+\subsubsection{Pre-2006 Model (1959--2005, $n=552$)}
+
+\textbf{Estimated coefficients:}
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\hline
+Parameter & Estimate & SE & $t$-value & $p$-value \\
+\hline
+$\phi_1$ (AR1) & 0.9782 & 0.0095 & 103.24 & $<0.001$ \\
+$\theta_1$ (MA1) & $-0.3085$ & 0.0382 & $-8.07$ & $<0.001$ \\
+$\Phi_1$ (SAR1) & 0.5257 & 0.1000 & 5.26 & $<0.001$ \\
+$\Theta_1$ (SMA1) & $-0.7160$ & 0.0812 & $-8.81$ & $<0.001$ \\
+$\mu$ (Mean) & 7.3417 & 0.0567 & 129.59 & $<0.001$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent
+$\hat{\sigma}^2 = 0.00534$ on 560 degrees of freedom. \\
+AIC = $-2.367$, AICc = $-2.367$, BIC = $-2.321$.
+
+\subsubsection{Pre-2010 Model (1959--2009, $n=612$)}
+
+\textbf{Estimated coefficients:}
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\hline
+Parameter & Estimate & SE & $t$-value & $p$-value \\
+\hline
+$\phi_1$ (AR1) & 0.9893 & 0.0073 & 135.99 & $<0.001$ \\
+$\theta_1$ (MA1) & $-0.2740$ & 0.0364 & $-7.53$ & $<0.001$ \\
+$\Phi_1$ (SAR1) & 0.5682 & 0.0998 & 5.69 & $<0.001$ \\
+$\Theta_1$ (SMA1) & $-0.7328$ & 0.0819 & $-8.95$ & $<0.001$ \\
+$\mu$ (Mean) & 7.2344 & 0.1182 & 61.22 & $<0.001$ \\
+\hline
+\end{tabular}
+\end{table}
+
+\noindent
+$\hat{\sigma}^2 = 0.00561$ on 607 degrees of freedom. \\
+AIC = $-2.319$, AICc = $-2.319$, BIC = $-2.276$.
+
+\subsection{Out-of-Sample Forecast Performance}
+
+Out-of-sample prediction performance for the SARMA models varied across training regimes, highlighting the importance of training-window selection in the presence of structural change. When trained on the pre-2006 regime, the SARMA model produced forecasts that failed to model the severity of the housing downturn associated with the 2008 Financial Crisis. As a result, point forecasts systematically overpredicted housing starts during the post-crisis period, with observed values frequently falling near or below the lower bounds of the prediction intervals.
+
+In contrast, the SARMA model trained on the pre-2010 regime exhibited improved adaptability to the post-crisis dynamics. The point estimate forecasts from this model tracked the gradual recovery, reflecting the inclusion of the initial trough in the training sample. While forecast uncertainty was elevated, the prediction intervals included the recovery and were better centered around the observed values. 
+
+
+Across both regimes, prediction intervals widened substantially following the crisis, consistent with increased volatility and uncertainty in housing market activity. However, the comparison between regimes suggests that incorporating data from periods of economic stress improves the model’s ability to produce realistic forecasts during recovery phases. Overall, SARMA-based forecasts were sensitive to regime choice, with models trained on data encompassing the housing collapse providing more reliable out-of-sample performance.
+
+\begin{figure}[h]
+  \centering
+
+  \begin{subfigure}[t]{0.95\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/arma_forecast_pre2006.png}
+    \caption{ARMA fit and forecast trained on the pre-2006 regime.}
+    \label{fig:arma_pre2006}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}[t]{0.95\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/arma_forecast_pre2010.png}
+    \caption{ARMA fit and forecast trained on the pre-2010 regime.}
+    \label{fig:arma_pre2010}
+  \end{subfigure}
+
+  \caption{Multi-step forecast (red) with prediction intervals (grey) plotted against the observed housing starts series (black), shown on the level scale. The two panels correspond to models trained on different historical regimes (pre-2006 vs.\ pre-2010).}
+  \label{fig:arma_forecasts}
+\end{figure}
+
+\subsection{Spectral Models}
+
+Spectral estimates were computed separately for the pre-2006 and pre-2010 training regimes to examine how the dominant cyclical behavior of housing starts varies across economic conditions. For the pre-2006 sample, the estimated spectral density exhibited a dominant period of approximately 96 months (8 years), indicating that the majority of variation in housing starts was concentrated at relatively low frequencies.
+
+For the pre-2010 training regime, the dominant cycle shifted toward an even lower frequency, with an estimated period of approximately 125 months (10.4 years). As in the pre-2006 case, spectral power was concentrated at low frequencies, and the annual component contributed minimally to overall variance. 
+
+\begin{figure}[h]
+  \centering
+
+  \begin{subfigure}[t]{0.95\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/spectral_forecast_pre2006.png}
+    \caption{Spectral fit and forecast trained on the pre-2006 regime.}
+    \label{fig:spectral_pre2006}
+  \end{subfigure}
+
+  \vspace{0.8em}
+
+  \begin{subfigure}[t]{0.95\linewidth}
+    \centering
+    \includegraphics[width=\linewidth]{images/spectral_forecast_pre2010.png}
+    \caption{Spectral fit and forecast trained on the pre-2010 regime.}
+    \label{fig:spectral_pre2010}
+  \end{subfigure}
+
+  \caption{Spectral fit (blue) and multi-step forecast (red) plotted against the smoothed observed housing starts series (black), shown on the level scale. The two panels correspond to models trained on different historical regimes (pre-2006 vs.\ pre-2010). In both cases, the spectral approach produces smooth oscillatory forecasts that capture low-frequency cyclical behavior but does not adapt to abrupt structural changes such as the 2008 housing collapse.}
+  \label{fig:spectral_forecasts}
+\end{figure}
+
+Figure~\ref{fig:spectral_forecasts} illustrates the fitted spectral components and corresponding forecasts on the level scale. In both regimes, the spectral fits captured long-run cyclical behavior but were unable to reproduce sharp downturns or rapid structural changes, particularly during the housing collapse surrounding the 2008 Financial Crisis. Forecasts from the spectral models therefore exhibit smooth oscillatory behavior that reflects dominant low-frequency cycles rather than short-run fluctuations.
+
+Overall, while the dominant periodicity differed across training regimes, the spectral results consistently indicate that housing starts are driven primarily by long-term cyclical dynamics rather than seasonal effects. Differences between regimes arise through shifts in the estimated dominant frequency, reinforcing the importance of training-window choice when modeling long-run housing market behavior.
+
+
+\subsection{Key Findings}
+Despite time-domain models being constant, the training regime significantly impacted model out-of-sample forecast performance. Including data from periods of economic stress improves the model's ability to produce realistic recovery forecasts.
+
+Housing starts are driven by long-term cycles spanning roughly 10 years. Including the data up to 2010 lengthened the period cycle, as the final trough-to-trough cycle lasted 20 years.
+
+
+\section{Final Remarks}
+\label{sec:final_remarks}
+
+This study examined U.S.\ housing starts through both time-domain and frequency-domain lenses, with emphasis on how training-window selection affects inference and forecasting in the presence of structural change. Across all specifications, a consistent SARIMA(1,0,1)(1,0,1)[12] structure described the pre-crisis dynamics of housing starts. However, despite identical model structures, out-of-sample performance differed across training regimes, underscoring the sensitivity of time-series models to the historical information embedded in the estimation window.
+
+The comparison of pre-2006 and pre-2010 training regimes highlights the importance of incorporating periods of economic stress when forecasting recovery dynamics. Models trained exclusively on pre-crisis data systematically overpredicted post-2008 housing activity and failed to anticipate the depth and persistence of the downturn. In contrast, including observations from the housing collapse produced prediction intervals better aligned with observed recovery paths. These results illustrate that even well-specified time-domain models can exhibit forecast bias when structural breaks are omitted from the training sample.
+
+The spectral analysis complements these findings by revealing that housing starts are dominated by low-frequency cyclical behavior rather than strong seasonal effects. While the estimated dominant cycle length differed across regimes, both spectral models emphasized long-run oscillations and produced smooth forecasts that were inherently unable to adapt to abrupt structural changes. This limitation highlights a key tradeoff between interpretability and adaptability: spectral methods offer valuable insight into long-term dynamics but are ill-suited for forecasting during periods characterized by regime shifts or sudden economic shocks.
+
+Taken together, the results demonstrate that model selection is not the only factor determining reliable forecasting in macroeconomic time series. Training-window selection plays a critical role in shaping both parameter estimates and predictive performance. Key limitations include reliance on simple time-domain models. We limited our models to contain one term for each component. By increasing flexibility, we could have better captured trends in the data. Moreover, our spectral analysis modeled the dominant frequency in the time series. The low-frequency cyclical behavior does not adapt to abrupt structural changes. Lastly, blending the model building with volatility analysis with GARCH models could capture the inherent nuisance in economic data.
+
+Overall, this analysis provides us with useful information with which to explore further avenues of time series modeling, focusing on capturing additional nuances with our training split findings regarding regime changes in mind.
+
+
+
+%%%%%%%%% REFERENCES
+{\small
+\bibliographystyle{ieee_fullname}
+\bibliography{references} %  <---  Create a references.bib file
+}
+
+
+\end{document}
