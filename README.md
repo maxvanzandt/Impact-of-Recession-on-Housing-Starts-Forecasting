@@ -10,7 +10,7 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 
 ## Data Sources
 
-- **HOUST** — New Privately-Owned Housing Units Started: Total Units. Federal Reserve Bank of St. Louis (FRED): https://fred.stlouisfed.org/series/HOUST
+- **HOUST** - New Privately-Owned Housing Units Started: Total Units. Federal Reserve Bank of St. Louis (FRED): https://fred.stlouisfed.org/series/HOUST
 
 ## Data Dictionary
 
@@ -29,7 +29,7 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 4. To compile the paper: `latex/housing_starts_paper.tex` compiles with `pdflatex` + `bibtex` (standard two-pass bibliography build). Requires `cvpr.sty` and `ieee_fullname.bst` to be present in the same directory.
 
 ## Files
-
+```
 ├── analysis/
 │   ├── max-pre-2006.Rmd       # SARIMA + spectral analysis, pre-2006 training regime
 │   └── sami-pre-2010.Rmd      # SARIMA + spectral analysis, pre-2010 training regime
@@ -43,7 +43,7 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 │   └── README.md                # Template attribution notes
 ├── LICENSE
 └── README.md
-
+```
 ## Authorship
 
 - **Sections 4.2–4.3** (pre-2006 SARIMA and spectral analysis): Max Van Zandt
@@ -52,7 +52,7 @@ Full writeup, literature review, and results: [`latex/housing_starts_paper.pdf`]
 
 ## Acknowledgments
 
-The LaTeX formatting is based on the CVPR paper template (originally by Paolo Ienne and Andrew Fitzgibbon; modernized by Ming-Ming Cheng — https://github.com/MCG-NKU/CVPR_Template — and further updated by Stefan Roth). It is reused here solely for its two-column academic layout; this is not a CVPR submission and is not affiliated with the conference. The bibliography style (`ieee_fullname.bst`) is a modification of the standard IEEE style by Jonathan Barron, adapted to print full author first names.
+The LaTeX formatting is based on the CVPR paper template (originally by Paolo Ienne and Andrew Fitzgibbon; modernized by Ming-Ming Cheng - https://github.com/MCG-NKU/CVPR_Template - and further updated by Stefan Roth). It is reused here solely for its two-column academic layout; this is not a CVPR submission and is not affiliated with the conference. The bibliography style (`ieee_fullname.bst`) is a modification of the standard IEEE style by Jonathan Barron, adapted to print full author first names.
 
 ## License
 
