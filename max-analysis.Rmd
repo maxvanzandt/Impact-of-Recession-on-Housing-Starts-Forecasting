@@ -1,0 +1,265 @@
+---
+title: "Housing Starts Analysis — Pre-2006 Regime"
+author: "Maximilian Van Zandt"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(astsa)
+library(readr)
+library(forecast)
+library(tseries)
+```
+
+```{r load-data}
+data <- read_csv("HOUST.csv")
+data_ts <- ts(data$HOUST, start = c(1959, 1), frequency = 12)
+```
+
+#### Pre-2006
+
+I switched up so just dealing with non-seasonal for right now, then checking ACF for spikes. I think breaking it down like this should help instead of trying to do all at once with an assumed seasonal pattern. I don't want to assume 60 or 12-month seasonality and just blindly generate plots. So,
+
+1st: we decide if differencing/log transform is appropriate
+
+2nd: We look at seasonal components
+
+```{r pre2006-transform}
+#Pre-Jan 2006
+# Train/test split
+train <- window(data_ts, end = c(2006, 1))
+test  <- window(data_ts, start = c(2006, 2))
+
+#Original (nonlinear trend, non-stationary)
+housing_pre2006 <- train
+plot(housing_pre2006, main="Housing Starts: Pre-2006", ylab="Housing Starts")
+#Differencing
+diff_pre2006 <- diff(housing_pre2006)
+plot(diff_pre2006, main="Differenced Housing: Pre-2006")
+#Log original
+log_pre2006 <- log(housing_pre2006)
+plot(log_pre2006)
+#Difference the log
+diff_log_pre2006 <- diff(log_pre2006)
+plot(diff_log_pre2006, main="Differenced Log Housing: Pre-2006")
+```
+
+Difference of log is much much better than difference of original data. Below, I'm testing whether or not we have that 60-month cycle or that 12-month cycle by plotting the acf all the way up to lag 120. I thought 60 because of the periodogram we saw earlier but the spikes are clearly at 12 and the ACF values indicate 12.
+
+```{r pre2006-acf}
+acf2(diff(log(housing_pre2006)), max.lag=120)
+```
+
+Now, I'm checking seasonal differencing of the differenced log data just to see if that makes a difference.
+
+```{r pre2006-seasonal-diff}
+#Recall diff_pre2006 <- diff(log_pre2006)
+#hardcoding it bc the tutorial hardcodes
+both_diff_pre2006 <- diff(diff(log(housing_pre2006), 12))
+plot(both_diff_pre2006, main="First + Seasonal Differenced: Pre-2006")
+acf2(both_diff_pre2006, max.lag=120)
+#Stationarity check
+adf.test(diff_log_pre2006)
+adf.test(both_diff_pre2006)
+```
+
+Results are inconclusive, but lean toward skipping the seasonal differencing in favor of simply differencing the log. The models below will include either seasonal and non-seasonal differencing and both and I'll compare from there.
+
+```{r pre2006-sarima-candidates}
+fit1 <- sarima(log_pre2006, 0, 0, 1, 0, 0, 1, 12)
+fit2 <- sarima(log_pre2006, 0, 0, 1, 1, 0, 1, 12)
+fit3 <- sarima(log_pre2006, 1, 0, 0, 1, 0, 1, 12)
+fit4 <- sarima(log_pre2006, 1, 0, 1, 1, 0, 1, 12)
+fit_pre2006 <- auto.arima(log(housing_pre2006), seasonal=TRUE, stepwise=FALSE,
+                           approximation=FALSE, max.p=1, max.q=1, max.P=1, max.Q=1)
+summary(fit_pre2006)
+```
+
+Model 4 wins!
+
+```{r pre2006-forecast}
+fitx <- Arima(log_pre2006, order = c(1,0,1), seasonal = c(1,0,1))
+
+h <- length(test)
+fc <- forecast(fitx, h = h)
+
+# Back-transform to original scale
+pred_level  <- exp(fc$mean)
+lower_level <- exp(fc$lower[,2])  # 95% lower
+upper_level <- exp(fc$upper[,2])  # 95% upper
+
+# Plot: actual vs predicted (with 95% band)
+plot(data_ts, main = "Housing Starts: Actual vs Forecast (level scale) (1,0,1)x(1,0,1)[12]",
+     ylab = "Housing Starts", xlab = "Time", col = "black", lwd = 1,
+     ylim=c(0,4000))
+lines(pred_level, col = "red", lwd = 1)
+lines(lower_level, col = "grey", lty = 2)
+lines(upper_level, col = "grey", lty = 2)
+legend("topleft",
+       legend = c("Actual", "Forecast", "95% PI"),
+       col = c("black", "red", "grey"),
+       lty = c(1, 1, 2), lwd = c(2, 2, 1), bty = "n")
+```
+
+Reproducing the periodograms to see what we have now.
+
+```{r pre2006-periodogram}
+# Raw and smoothed periodograms
+log_pre2006.per <- mvspec(log_pre2006)
+k <- kernel("modified.daniell", c(3, 3))
+log_pre2006.smooth <- mvspec(log_pre2006, k)
+
+#Dominant frequency
+n <- length(log_pre2006)
+np <- nextn(n)
+max_index <- which.max(log_pre2006.smooth$spec)
+omega_star <- (max_index - 1) / np
+period_star <- 1 / omega_star
+
+cat("Dominant period:", round(period_star, 1), "months (",
+    round(period_star/12, 1), "years)\n")
+
+# Annual cycle power
+annual_freq <- 1/12
+annual_index <- which.min(abs(log_pre2006.smooth$freq - annual_freq))
+annual_power <- log_pre2006.smooth$spec[annual_index]
+
+cat("Annual cycle power ratio:", round(annual_power / log_pre2006.smooth$spec[max_index], 2), "\n")
+```
+
+```{r pre2006-spectral-setup}
+# Data setup
+train <- log_pre2006
+n_train <- length(train)
+t_train <- seq_len(n_train)
+
+## 1. Detrend + demean training data
+trend_fit <- lm(as.numeric(train) ~ t_train)
+r_train <- resid(trend_fit)
+r_train <- r_train - mean(r_train)
+
+## 2. Smoothed spectral density (training only)
+k <- kernel("modified.daniell", c(2, 2))
+spec_obj <- mvspec(r_train, kernel = k, plot = TRUE)
+spec_values <- spec_obj$spec
+freq_values <- spec_obj$freq
+df <- spec_obj$df
+
+## 3. Dominant frequency
+idx <- which.max(spec_values)
+omega_star <- freq_values[idx]
+period_star <- 1 / omega_star
+f_hat <- spec_values[idx]
+
+cat("Dominant period:", round(period_star, 1), "months (",
+    round(period_star/12, 1), "years)\n")
+cat("Dominant spectral power:", round(f_hat, 6), "\n")
+
+## 4. Annual cycle comparison
+annual_freq <- 1/12
+annual_index <- which.min(abs(freq_values - annual_freq))
+annual_power <- spec_values[annual_index]
+
+cat("\nAnnual frequency:", freq_values[annual_index], "\n")
+cat("Annual spectral power:", round(annual_power, 6), "\n")
+cat("Annual/Dominant ratio:", round(annual_power / f_hat, 2), "\n")
+```
+
+```{r pre2006-spectral-forecast}
+# Define test period (2006-2024)
+test <- window(data_ts, start=c(2006,1))
+n_test <- length(test)
+t_test <- (n_train + 1):(n_train + n_test)
+
+## 4. Fit sinusoid at dominant frequency
+X_train <- cbind(
+  cos(2 * pi * omega_star * t_train),
+  sin(2 * pi * omega_star * t_train)
+)
+fit_fourier <- lm(r_train ~ X_train)
+
+## 5. Forecast sinusoid into test period
+X_test <- cbind(
+  cos(2 * pi * omega_star * t_test),
+  sin(2 * pi * omega_star * t_test)
+)
+r_hat_test <- cbind(1, X_test) %*% coef(fit_fourier)
+
+## Add back trend
+trend_test <- predict(
+  trend_fit,
+  newdata = data.frame(t_train = t_test)
+)
+log_pred <- as.numeric(r_hat_test) + trend_test
+
+## 6. Spectral-based variance estimate
+sigma2_hat <- f_hat
+alpha <- 0.05
+z <- qnorm(1 - alpha / 2)
+se_pred <- sqrt(sigma2_hat)
+lower <- log_pred - z * se_pred
+upper <- log_pred + z * se_pred
+
+## 7. Collect results
+forecast_df <- ts(
+  cbind(
+    actual = log(test),
+    forecast = log_pred,
+    lower = lower,
+    upper = upper
+  ),
+  start = start(test),
+  frequency = frequency(test)
+)
+forecast_df
+```
+
+```{r pre2006-fitted-values}
+## In-sample fitted values (log scale)
+r_hat_train <- cbind(1, X_train) %*% coef(fit_fourier)
+trend_train <- fitted(trend_fit)
+log_fitted <- as.numeric(r_hat_train) + trend_train
+fitted_level <- exp(log_fitted)
+fitted_ts <- ts(
+  fitted_level,
+  start = start(train),
+  frequency = frequency(train)
+)
+```
+
+```{r pre2006-spectral-plot}
+pred_level  <- exp(log_pred)
+lower_level <- exp(lower)
+upper_level <- exp(upper)
+pred_ts  <- ts(pred_level,  start = start(test), frequency = frequency(test))
+lower_ts <- ts(lower_level, start = start(test), frequency = frequency(test))
+upper_ts <- ts(upper_level, start = start(test), frequency = frequency(test))
+
+smoothed_data_ts <- ma(data_ts, order = period_star)
+
+plot(
+  smoothed_data_ts,
+  main = "Housing Starts: Spectral Fit and Forecast (level scale)",
+  ylab = "Housing Starts",
+  xlab = "Time",
+  col = "black",
+  lwd = 1,
+  ylim = c(0, 4000)
+)
+
+## In-sample fitted (training)
+lines(fitted_ts, col = "blue", lwd = 1)
+
+## Out-of-sample forecast
+lines(pred_ts,  col = "red",  lwd = 1)
+
+legend(
+  "topleft",
+  legend = c("Actual (smoothed)", "Fitted (Train)", "Spectral Forecast"),
+  col = c("black", "blue", "red"),
+  lty = c(1, 1, 1, 2),
+  lwd = c(2, 2, 2, 1),
+  bty = "n"
+)
+```
